@@ -7,6 +7,8 @@ from PIL import Image, ImageTk
 import aggdraw as ImageDraw
 import ffmpeg
 import json # hold ON!! i can just use json!!
+from base64 import b64encode
+from io import BytesIO
 
 ver = "26.3.8"
 codename = "ffAHH!!"
@@ -84,10 +86,19 @@ def addFrame():
 def abt():
 	msgbox.showinfo(f"Animakeris 26 {ver} (\"{codename}\")",f"{getStr(9)}\n\n{getStr(10)} https://github.com/RixInGithub/animakeris26")
 
+def img2Base64(i):
+	print("here?")
+	buf = BytesIO()
+	i.save(buf, format="PNG")
+	return b64encode(buf.getvalue()).decode()
+
 def saveProj():
 	p = asksaveasfilename(title="Save as", defaultextension=".a26", filetypes=[("Animakeris 26 files", "*.a26"),("All files", "*.*")]) # got too lazy, am not translating ts
 	if p:
-		pass
+		with open(p, "w", encoding="utf8") as projIO:
+			json.dump({
+				"frames": [[{**{k: v for k, v in b.items() if k != "draw" and k != "img"}, "img": img2Base64(b["img"])} for b in a] for a in proj]
+			}, projIO)
 	return p # just return |p|, if user cancelled, it'll return |None|.
 
 def saveCurry(after):
@@ -148,7 +159,7 @@ def getStr(n):
 	except: return "⁇⁇" # idfk
 
 translatedCfg = ["text", "value", "label", "content"]
-enablePp = 0
+enablePp = 1
 availableTools = [3, 4]
 mDown = False
 lastXy = None
