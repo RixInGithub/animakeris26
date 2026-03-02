@@ -98,7 +98,7 @@ def saveProj():
 		with open(p, "w", encoding="utf8") as projIO:
 			json.dump({
 				"frames": [[{**{k: v for k, v in b.items() if k != "draw" and k != "img"}, "img": img2Base64(b["img"])} for b in a] for a in proj]
-			}, projIO)
+			}, projIO, separators=(",",":"))
 	return p # just return |p|, if user cancelled, it'll return |None|.
 
 def saveCurry(after):
