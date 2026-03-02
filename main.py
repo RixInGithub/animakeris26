@@ -2,11 +2,14 @@
 # "Animakeris 26" – animacijų piešimo programėlė – pieši animacijos kadrus, pasirenki FPS/(mili)sekundės per n kadrų ir sugeneruoja |.mp4|/|.gif| (PIL generuoja |.gif|/|.apng|, ffmpeg "binding"ai generuoja |.mp4|/|.mov|/t.t, tkinter daro main gui (|root|))
 import tkinter as tk
 import tkinter.messagebox as msgbox
-from PIL import Image, ImageDraw, ImageTk
+from tkinter.filedialog import asksaveasfilename
+from PIL import Image, ImageTk
+import aggdraw as ImageDraw
 import ffmpeg
+import json # hold ON!! i can just use json!!
 
 ver = "26.3.8"
-codename = "me when the"
+codename = "ffAHH!!"
 cachedFrm = None
 cachedFCImg = None
 
@@ -34,7 +37,7 @@ def aLangW(w, lTbl):
 
 def aLangMenu(m, lTbl):
 	end = m.index(tk.END)
-	if end is None: return # "POOP YOURSELF!"
+	if end is None: return
 	count = 0
 	while count <= end:
 		try:
@@ -56,31 +59,65 @@ def retransTools():
 def recacheFrm():
 	global cachedFrm
 	cachedFrm = blankImg()
-	for l in proj[selFrame][:selLayer]: cachedFrm.paste(l, l)
+	for l in proj[selFrame][:selLayer]: cachedFrm.paste(l["img"], l["img"])
 
 def blankImg(): return Image.new("RGBA", size)
 
 def redrawCnv():
 	global cachedFCImg
 	new = cachedFrm.copy()
-	new.paste(proj[selFrame][selLayer], proj[selFrame][selLayer])
+	new.paste(proj[selFrame][selLayer]["img"], proj[selFrame][selLayer]["img"])
 	cnv.img = ImageTk.PhotoImage(new)
 	if cachedFCImg is None:
 		cachedFCImg = cnv.create_image(0,0,anchor="nw",image=cnv.img)
 		return
 	cnv.itemconfig(cachedFCImg, image=cnv.img)
 
+def blankLayer():
+	i = blankImg()
+	jraw = ImageDraw.Draw(i)
+	return {"img": i, "draw": jraw}
+
 def addFrame():
-	proj.append([blankImg()])
+	proj.append([blankLayer()])
 
 def abt():
 	msgbox.showinfo(f"Animakeris 26 {ver} (\"{codename}\")",f"{getStr(9)}\n\n{getStr(10)} https://github.com/RixInGithub/animakeris26")
 
-def exitPp():
-	if enablePp:
-		out = msgbox.askyesnocancel("Animakeris 26",getStr(5))
-		if out == None: return # cancelled
-	root.destroy()
+def saveProj():
+	p = asksaveasfilename(title="Save as", defaultextension=".a26", filetypes=[("Animakeris 26 files", "*.a26"),("All files", "*.*")]) # got too lazy, am not translating ts
+	if p:
+		pass
+	return p # just return |p|, if user cancelled, it'll return |None|.
+
+def saveCurry(after):
+	def inner():
+		if enablePp:
+			out = msgbox.askyesnocancel("Animakeris 26",getStr(5))
+			if out == None: return # cancelled
+			if out == True and saveProj() == None: return # also cancelled
+		after()
+	return inner
+
+def resetProjDangerous():
+	global cachedFrm, cachedFCImg, selFrame, selLayer, size, proj
+	cachedFrm = None
+	if cachedFCImg is not None: cnv.delete(cachedFCImg)
+	cachedFCImg = None
+	selFrame = 0
+	selLayer = 0
+	size = [500, 400]
+	cnv.config(width=size[0], height=size[1])
+	proj = []
+	cnv.img = None
+	tools.selection_clear(0, tk.END)
+	retransTools()
+	addFrame()
+	recacheFrm()
+	redrawCnv()
+
+exitPp = saveCurry(lambda: root.destroy())
+newProj = saveCurry(resetProjDangerous)
 
 def downEvt(e):
 	global mDown, lastXy
@@ -92,15 +129,17 @@ def onMove(e):
 	if not mDown: return
 	sel = tools.curselection()[0]
 	if sel == 0 or sel == 1: # pencil AND eraser
+		x = e.x
+		y = e.y
 		phil = "Black"
-		if sel == 1: phil = (0,0,0,0) # always transparent eraser
-		if lastXy != None:
-			ImageDraw.Draw(proj[selFrame][selLayer]).line((lastXy[0], lastXy[1], e.x, e.y), fill=phil, width=10)
-			redrawCnv()
-		lastXy = [e.x, e.y]
-		return
-	if sel == 1: # eraser
-		return # tbd
+		if sel == 1: phil = (0,0,0,0) # always erase on eraser (woag!)
+		size = 10
+		hSize = size/2
+		proj[selFrame][selLayer]["draw"].ellipse((x-hSize,y-hSize,x+hSize,y+hSize), ImageDraw.Brush(phil))
+		if lastXy != None: proj[selFrame][selLayer]["draw"].line((lastXy[0], lastXy[1], x, y), ImageDraw.Pen(phil, size))
+		proj[selFrame][selLayer]["draw"].flush()
+		redrawCnv()
+		lastXy = [x, y]
 	# wait what
 
 def getStr(n):
@@ -109,7 +148,7 @@ def getStr(n):
 	except: return "⁇⁇" # idfk
 
 translatedCfg = ["text", "value", "label", "content"]
-enablePp = False
+enablePp = 0
 availableTools = [3, 4]
 mDown = False
 lastXy = None
@@ -120,7 +159,7 @@ trans = {
 		"New",
 		"Pencil",
 		"Eraser",
-		"Would you like to save before exiting?",
+		"Would you like to save?",
 		"Edit",
 		"Help",
 		"About",
@@ -146,7 +185,7 @@ trans = {
 	]
 }
 root = tk.Tk()
-lang = tk.StringVar(value="lt")
+lang = tk.StringVar(value="en")
 prevLang = lang.get()
 root.geometry("800x600")
 root.title("Animakeris 26")
@@ -163,7 +202,7 @@ menu = tk.Menu(root)
 
 file = tk.Menu(menu, tearoff=0)
 file.add_command(label=getStr(1), command=exitPp)
-file.add_command(label=getStr(2), command=lambda: msgbox.showerror("Animakeris 26","tbd"))
+file.add_command(label=getStr(2), command=newProj)
 menu.add_cascade(label=getStr(0), menu=file)
 
 edit = tk.Menu(menu, tearoff=0)
