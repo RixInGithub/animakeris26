@@ -33,7 +33,7 @@ def aLangW(w, lTbl):
 	for o in translatedCfg:
 		try:
 			curr = w.cget(o)
-			if type(curr) == str and curr in lTbl and lTbl[curr] != 12:
+			if type(curr) == str and curr in lTbl:
 				w.config(**{o: trans[lang.get()][lTbl[curr]]})
 				continue
 		except tk.TclError: pass
@@ -45,9 +45,9 @@ def aLangMenu(m, lTbl):
 	while count <= end:
 		try:
 			curr = m.entrycget(count, "label")
-			if curr in lTbl and lTbl[curr] != 12: m.entryconfig(count, label=trans[lang.get()][lTbl[curr]])
+			if curr in lTbl: m.entryconfig(count, label=trans[lang.get()][lTbl[curr]])
 			ch = m.entrycget(count, "menu")
-			if m.type(count) == "cascade" and ch: aLangMenu(m.nametowidget(ch), lTbl)
+			if m.type(count) == "cascade" and ch and lTbl[curr] != 11: aLangMenu(m.nametowidget(ch), lTbl)
 		except tk.TclError: pass
 		count += 1
 
@@ -138,10 +138,37 @@ def resetProjDangerous():
 exitPp = saveCurry(lambda: root.destroy())
 newProj = saveCurry(resetProjDangerous)
 
+def applyErase(i):
+	eraseAlpha = i.getchannel("A")
+	base = proj[selFrame][selLayer]["img"]
+	r, g, b, a = base.split()
+	a = ImageChops.subtract(a, eraseAlpha)
+	proj[selFrame][selLayer]["img"] = Image.merge("RGBA", (r, g, b, a))
+	proj[selFrame][selLayer]["draw"] = ImageDraw.Draw(proj[selFrame][selLayer]["img"])
+
 def downEvt(e):
 	global mDown, lastXy
 	mDown = True
 	lastXy = None
+	sel = tools.curselection()[0]
+	if sel == 0 or sel == 1: # pencil AND eraser
+		drawOn = proj[selFrame][selLayer]["draw"]
+		x = e.x
+		y = e.y
+		phil = "Black"
+		pSize = 10
+		hSize = pSize/2
+		if sel == 1:
+			eraseIm = blankImg()
+			drawOn = ImageDraw.Draw(eraseIm)
+			phil = "Black" # constant
+		drawOn.ellipse((x-hSize,y-hSize,x+hSize,y+hSize), ImageDraw.Brush(phil))
+		drawOn.flush()
+		if sel == 1:
+			applyErase(eraseIm)
+		redrawCnv()
+		lastXy = [x, y]
+		return
 
 def onMove(e):
 	global lastXy, mDown
@@ -158,19 +185,15 @@ def onMove(e):
 			eraseIm = blankImg()
 			drawOn = ImageDraw.Draw(eraseIm)
 			phil = "Black" # constant
+		drawOn.line((lastXy[0], lastXy[1], x, y), ImageDraw.Pen(phil, pSize))
 		drawOn.ellipse((x-hSize,y-hSize,x+hSize,y+hSize), ImageDraw.Brush(phil))
-		if lastXy != None: drawOn.line((lastXy[0], lastXy[1], x, y), ImageDraw.Pen(phil, pSize))
 		drawOn.flush()
 		if sel == 1:
-			eraseAlpha = eraseIm.getchannel("A")
-			base = proj[selFrame][selLayer]["img"]
-			r, g, b, a = base.split()
-			a = ImageChops.subtract(a, eraseAlpha)
-			proj[selFrame][selLayer]["img"] = Image.merge("RGBA", (r, g, b, a))
-			proj[selFrame][selLayer]["draw"] = ImageDraw.Draw(proj[selFrame][selLayer]["img"])
+			applyErase(eraseIm)
 			# print("hello??")
 		redrawCnv()
 		lastXy = [x, y]
+		return
 	# wait what
 
 def getStr(n):
