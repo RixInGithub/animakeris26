@@ -218,7 +218,7 @@ trans = {
 	]
 }
 root = tk.Tk()
-lang = tk.StringVar(value="en")
+lang = tk.StringVar(value="lt")
 prevLang = lang.get()
 root.geometry("800x600")
 root.title("Animakeris 26")
