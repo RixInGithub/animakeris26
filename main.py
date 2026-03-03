@@ -3,7 +3,7 @@
 import tkinter as tk
 import tkinter.messagebox as msgbox
 from tkinter.filedialog import asksaveasfilename
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageChops
 import aggdraw as ImageDraw
 import ffmpeg
 import json # hold ON!! i can just use json!!
@@ -14,6 +14,7 @@ ver = "26.3.8"
 codename = "ffAHH!!"
 cachedFrm = None
 cachedFCImg = None
+savedP = None
 
 def applyLang():
 	global prevLang
@@ -87,18 +88,25 @@ def abt():
 	msgbox.showinfo(f"Animakeris 26 {ver} (\"{codename}\")",f"{getStr(9)}\n\n{getStr(10)} https://github.com/RixInGithub/animakeris26")
 
 def img2Base64(i):
-	print("here?")
 	buf = BytesIO()
 	i.save(buf, format="PNG")
 	return b64encode(buf.getvalue()).decode()
 
+def writeProj(p):
+	with open(p, "w", encoding="utf8") as projIO:
+		json.dump({
+			"frames": [[{**{k: v for k, v in b.items() if k != "draw" and k != "img"}, "img": img2Base64(b["img"])} for b in a] for a in proj]
+		}, projIO, separators=(",",":"))
+
 def saveProj():
+	global savedP
+	if savedP:
+		writeProj(savedP)
+		return savedP
 	p = asksaveasfilename(title="Save as", defaultextension=".a26", filetypes=[("Animakeris 26 files", "*.a26"),("All files", "*.*")]) # got too lazy, am not translating ts
 	if p:
-		with open(p, "w", encoding="utf8") as projIO:
-			json.dump({
-				"frames": [[{**{k: v for k, v in b.items() if k != "draw" and k != "img"}, "img": img2Base64(b["img"])} for b in a] for a in proj]
-			}, projIO, separators=(",",":"))
+		writeProj(p)
+		savedP = p
 	return p # just return |p|, if user cancelled, it'll return |None|.
 
 def saveCurry(after):
@@ -140,15 +148,27 @@ def onMove(e):
 	if not mDown: return
 	sel = tools.curselection()[0]
 	if sel == 0 or sel == 1: # pencil AND eraser
+		drawOn = proj[selFrame][selLayer]["draw"]
 		x = e.x
 		y = e.y
 		phil = "Black"
-		if sel == 1: phil = (0,0,0,0) # always erase on eraser (woag!)
-		size = 10
-		hSize = size/2
-		proj[selFrame][selLayer]["draw"].ellipse((x-hSize,y-hSize,x+hSize,y+hSize), ImageDraw.Brush(phil))
-		if lastXy != None: proj[selFrame][selLayer]["draw"].line((lastXy[0], lastXy[1], x, y), ImageDraw.Pen(phil, size))
-		proj[selFrame][selLayer]["draw"].flush()
+		pSize = 10
+		hSize = pSize/2
+		if sel == 1:
+			eraseIm = blankImg()
+			drawOn = ImageDraw.Draw(eraseIm)
+			phil = "Black" # constant
+		drawOn.ellipse((x-hSize,y-hSize,x+hSize,y+hSize), ImageDraw.Brush(phil))
+		if lastXy != None: drawOn.line((lastXy[0], lastXy[1], x, y), ImageDraw.Pen(phil, pSize))
+		drawOn.flush()
+		if sel == 1:
+			eraseAlpha = eraseIm.getchannel("A")
+			base = proj[selFrame][selLayer]["img"]
+			r, g, b, a = base.split()
+			a = ImageChops.subtract(a, eraseAlpha)
+			proj[selFrame][selLayer]["img"] = Image.merge("RGBA", (r, g, b, a))
+			proj[selFrame][selLayer]["draw"] = ImageDraw.Draw(proj[selFrame][selLayer]["img"])
+			# print("hello??")
 		redrawCnv()
 		lastXy = [x, y]
 	# wait what
@@ -177,7 +197,8 @@ trans = {
 		"An animation program made by Adas Jankus.",
 		"Source available at:",
 		"Change languages…",
-		"English"
+		"English",
+		"Save"
 	],
 	"lt": [
 		"Failas",
@@ -192,7 +213,8 @@ trans = {
 		"Ado Jankaus programa, skirta kurti animacijas.",
 		"Kodo repоzitorija:",
 		"Keisti kalbą…",
-		"lietuvių"
+		"lietuvių",
+		"Išsaugoti"
 	]
 }
 root = tk.Tk()
@@ -212,8 +234,9 @@ addFrame()
 menu = tk.Menu(root)
 
 file = tk.Menu(menu, tearoff=0)
-file.add_command(label=getStr(1), command=exitPp)
+file.add_command(label=getStr(13), command=saveProj)
 file.add_command(label=getStr(2), command=newProj)
+file.add_command(label=getStr(1), command=exitPp)
 menu.add_cascade(label=getStr(0), menu=file)
 
 edit = tk.Menu(menu, tearoff=0)
