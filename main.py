@@ -15,6 +15,8 @@ codename = "ffAHH!!"
 cachedFrm = None
 cachedFCImg = None
 savedP = None
+selData = {"x1":0,"y1":0,"x2":0,"y2":0,"pix":None,"move":False}
+selRect = None
 
 def applyLang():
 	global prevLang
@@ -67,13 +69,16 @@ def recacheFrm():
 def blankImg(): return Image.new("RGBA", size)
 
 def redrawCnv():
-	global cachedFCImg
+	global cachedFCImg, selRect, selData
 	new = cachedFrm.copy()
 	new.paste(proj[selFrame][selLayer]["img"], proj[selFrame][selLayer]["img"])
 	cnv.img = ImageTk.PhotoImage(new)
 	if cachedFCImg is None:
 		cachedFCImg = cnv.create_image(0,0,anchor="nw",image=cnv.img)
 		return
+	if any([selData["x1"],selData["x2"],selData["y1"],selData["y2"]]):
+		if selRect is None: selRect = cnv.create_rectangle(0,0,0,0, width=0, fill="#bbfaff", stipple="gray25")
+		cnv.coords(selRect, selData["x1"],selData["y1"],selData["x2"],selData["y2"])
 	cnv.itemconfig(cachedFCImg, image=cnv.img)
 
 def blankLayer():
@@ -147,7 +152,7 @@ def applyErase(i):
 	proj[selFrame][selLayer]["draw"] = ImageDraw.Draw(proj[selFrame][selLayer]["img"])
 
 def downEvt(e):
-	global mDown, lastXy
+	global mDown, lastXy, selData
 	mDown = True
 	lastXy = None
 	sel = tools.curselection()[0]
@@ -169,9 +174,15 @@ def downEvt(e):
 		redrawCnv()
 		lastXy = [x, y]
 		return
+	if sel == 2:
+		if not selRect:
+			selData["x1"] = selData["x2"] = e.x
+			selData["y1"] = selData["y2"] = e.y
+			redrawCnv()
+		return
 
 def onMove(e):
-	global lastXy, mDown
+	global lastXy, mDown, selData
 	if not mDown: return
 	sel = tools.curselection()[0]
 	if sel == 0 or sel == 1: # pencil AND eraser
@@ -194,7 +205,15 @@ def onMove(e):
 		redrawCnv()
 		lastXy = [x, y]
 		return
+	if sel == 2:
+		selData["x2"] = e.x
+		selData["y2"] = e.y
+		redrawCnv()
 	# wait what
+
+def onUp(e):
+	if sel == 2:
+		selData["move"] = True
 
 def getStr(n):
 	try:
@@ -203,7 +222,7 @@ def getStr(n):
 
 translatedCfg = ["text", "value", "label", "content"]
 enablePp = 1
-availableTools = [3, 4]
+availableTools = [3, 4, 14]
 mDown = False
 lastXy = None
 trans = {
@@ -221,7 +240,8 @@ trans = {
 		"Source available at:",
 		"Change languages…",
 		"English",
-		"Save"
+		"Save",
+		"Selection tool"
 	],
 	"lt": [
 		"Failas",
@@ -237,7 +257,8 @@ trans = {
 		"Kodo repоzitorija:",
 		"Keisti kalbą…",
 		"lietuvių",
-		"Išsaugoti"
+		"Išsaugoti",
+		"Žymėjimo įrankis"
 	]
 }
 root = tk.Tk()
