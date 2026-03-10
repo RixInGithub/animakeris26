@@ -2,12 +2,12 @@
 # "Animakeris 26" – animacijų piešimo programėlė – pieši animacijos kadrus, pasirenki FPS/(mili)sekundės per n kadrų ir sugeneruoja |.mp4|/|.gif| (PIL generuoja |.gif|/|.apng|, ffmpeg "binding"ai generuoja |.mp4|/|.mov|/t.t, tkinter daro main gui (|root|))
 import tkinter as tk
 import tkinter.messagebox as msgbox
-from tkinter.filedialog import asksaveasfilename
+from tkinter.filedialog import asksaveasfilename, askopenfile
 from PIL import Image, ImageTk, ImageChops
 import aggdraw as ImageDraw
 import ffmpeg
 import json # hold ON!! i can just use json!!
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from io import BytesIO
 
 ver = "26.3.8"
@@ -17,6 +17,7 @@ cachedFCImg = None
 savedP = None
 selData = {"x1":0,"y1":0,"x2":0,"y2":0,"pix":None,"move":False}
 selRect = None
+fileShit = {"defaultextension": ".a26", "filetypes": [("Animakeris 26 files", "*.a26"),("All files", "*.*")]}
 
 def applyLang():
 	global prevLang
@@ -77,14 +78,16 @@ def redrawCnv():
 		cachedFCImg = cnv.create_image(0,0,anchor="nw",image=cnv.img)
 		return
 	if any([selData["x1"],selData["x2"],selData["y1"],selData["y2"]]):
-		if selRect is None: selRect = cnv.create_rectangle(0,0,0,0, width=0, fill="#bbfaff", stipple="gray25")
+		if selRect is None: selRect = cnv.create_rectangle(0,0,0,0, width=0, fill="#bbfaff", stipple="gray50")
 		cnv.coords(selRect, selData["x1"],selData["y1"],selData["x2"],selData["y2"])
 	cnv.itemconfig(cachedFCImg, image=cnv.img)
 
-def blankLayer():
-	i = blankImg()
+def layerFromIm(i):
 	jraw = ImageDraw.Draw(i)
 	return {"img": i, "draw": jraw}
+
+def blankLayer():
+	return layerFromIm(blankImg())
 
 def addFrame():
 	proj.append([blankLayer()])
@@ -100,19 +103,44 @@ def img2Base64(i):
 def writeProj(p):
 	with open(p, "w", encoding="utf8") as projIO:
 		json.dump({
-			"frames": [[{**{k: v for k, v in b.items() if k != "draw" and k != "img"}, "img": img2Base64(b["img"])} for b in a] for a in proj]
+			"frames": [[{**{k: v for k, v in b.items() if k != "draw" and k != "img"}, "img": img2Base64(b["img"])} for b in a] for a in proj],
+			"w": size[0],
+			"h": size[1]
 		}, projIO, separators=(",",":"))
 
-def saveProj():
+def openProjWithoutSave():
+	global savedP, size, proj
+	with askopenfile("r", title="Open", **fileShit) as f: # i wonder if this works...
+		if f == None: return
+		print(f.name)
+		savedP = f.name
+		fileDict = json.load(f)
+	# no moar |f|
+	resetProjDangerous() # prepare for opened project
+	size = [fileDict.get("w", size[0]), fileDict.get("h", size[1])] # support older projects that didnt save size (aka eraserWorks.a26 & guy.a26)
+	proj = []
+	for frm in fileDict["frames"]:
+		idx = len(proj)
+		proj.append([])
+		for lyr in frm:
+			im = Image.open(BytesIO(b64decode(lyr["img"])))
+			proj[idx].append(layerFromIm(im))
+	recacheFrm()
+	redrawCnv()
+
+def saveProj(withSavedP=True):
 	global savedP
-	if savedP:
+	if savedP and withSavedP:
 		writeProj(savedP)
 		return savedP
-	p = asksaveasfilename(title="Save as", defaultextension=".a26", filetypes=[("Animakeris 26 files", "*.a26"),("All files", "*.*")]) # got too lazy, am not translating ts
+	p = asksaveasfilename(title="Save as", **fileShit) # got too lazy, am not translating ts
 	if p:
 		writeProj(p)
 		savedP = p
 	return p # just return |p|, if user cancelled, it'll return |None|.
+
+def saveAs():
+	return saveProj(False)
 
 def saveCurry(after):
 	def inner():
@@ -142,6 +170,7 @@ def resetProjDangerous():
 
 exitPp = saveCurry(lambda: root.destroy())
 newProj = saveCurry(resetProjDangerous)
+openProj = saveCurry(openProjWithoutSave)
 
 def applyErase(i):
 	eraseAlpha = i.getchannel("A")
@@ -241,7 +270,9 @@ trans = {
 		"Change languages…",
 		"English",
 		"Save",
-		"Selection tool"
+		"Selection tool",
+		"Open",
+		"Save as..."
 	],
 	"lt": [
 		"Failas",
@@ -258,7 +289,9 @@ trans = {
 		"Keisti kalbą…",
 		"lietuvių",
 		"Išsaugoti",
-		"Žymėjimo įrankis"
+		"Žymėjimo įrankis",
+		"Atidaryti",
+		"Išsaugoti kitu vardu..."
 	]
 }
 root = tk.Tk()
@@ -279,6 +312,8 @@ menu = tk.Menu(root)
 
 file = tk.Menu(menu, tearoff=0)
 file.add_command(label=getStr(13), command=saveProj)
+file.add_command(label=getStr(16), command=saveAs)
+file.add_command(label=getStr(15), command=openProj)
 file.add_command(label=getStr(2), command=newProj)
 file.add_command(label=getStr(1), command=exitPp)
 menu.add_cascade(label=getStr(0), menu=file)
