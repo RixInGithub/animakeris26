@@ -17,7 +17,9 @@ cachedFCImg = None
 savedP = None
 selData = {"x1":0,"y1":0,"x2":0,"y2":0,"pix":None,"move":False}
 selRect = None
-fileShit = {"defaultextension": ".a26", "filetypes": [("Animakeris 26 files", "*.a26"),("All files", "*.*")]}
+
+def fileShit():
+	return {"defaultextension": ".a26", "filetypes": [(getStr(17), "*.a26"),(getStr(18), "*.*")]}
 
 def applyLang():
 	global prevLang
@@ -110,7 +112,7 @@ def writeProj(p):
 
 def openProjWithoutSave():
 	global savedP, size, proj
-	with askopenfile("r", title="Open", **fileShit) as f: # i wonder if this works...
+	with askopenfile("r", title="Open", **fileShit()) as f: # i wonder if this works...
 		if f == None: return
 		print(f.name)
 		savedP = f.name
@@ -133,7 +135,7 @@ def saveProj(withSavedP=True):
 	if savedP and withSavedP:
 		writeProj(savedP)
 		return savedP
-	p = asksaveasfilename(title="Save as", **fileShit) # got too lazy, am not translating ts
+	p = asksaveasfilename(title="Save as", **fileShit()) # got too lazy, am not translating ts
 	if p:
 		writeProj(p)
 		savedP = p
@@ -251,7 +253,7 @@ def getStr(n):
 
 translatedCfg = ["text", "value", "label", "content"]
 enablePp = 1
-availableTools = [3, 4, 14]
+availableTools = [3, 4, 14, 19]
 mDown = False
 lastXy = None
 trans = {
@@ -272,7 +274,10 @@ trans = {
 		"Save",
 		"Selection tool",
 		"Open",
-		"Save as..."
+		"Save as...",
+		"Animakeris 26 files",
+		"All files",
+		"Fill bucket"
 	],
 	"lt": [
 		"Failas",
@@ -282,16 +287,19 @@ trans = {
 		"Trintukas",
 		"Ar norėtumete išsaugoti animaciją?",
 		"Redaguoti",
-		"Pagalba",
+		"Pagalba (Help)",
 		"Apie programą",
 		"Ado Jankaus programa, skirta kurti animacijas.",
 		"Kodo repоzitorija:",
-		"Keisti kalbą…",
+		"Keisti kalbą… (Change languages…)",
 		"lietuvių",
 		"Išsaugoti",
-		"Žymėjimo įrankis",
+		"Pasirinkimas",
 		"Atidaryti",
-		"Išsaugoti kitu vardu..."
+		"Išsaugoti kitu vardu...",
+		"Animakeris 26 failai",
+		"Visi failai",
+		"Pildymo kibiras"
 	]
 }
 root = tk.Tk()
