@@ -117,7 +117,7 @@ def openProjWithoutSave():
 		fileDict = json.load(f)
 	# no moar |f|
 	resetProjDangerous() # prepare for opened project
-	size = [fileDict.get("w", size[0]), fileDict.get("h", size[1])] # support older projects that didnt save size (aka eraserWorks.a26 & guy.a26)
+	size = [fileDict.get("w", size[0]), fileDict.get("h", size[1])] # support older projects that didnt save size (aka eraserWorks.a26)
 	proj = []
 	for frm in fileDict["frames"]:
 		idx = len(proj)
