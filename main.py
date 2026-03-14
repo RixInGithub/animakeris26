@@ -15,7 +15,8 @@ codename = "ffAHH!!"
 cachedFrm = None
 cachedFCImg = None
 savedP = None
-selData = {"x1":0,"y1":0,"x2":0,"y2":0,"pix":None,"move":False}
+defSelData = {"x1":0,"y1":0,"x2":0,"y2":0,"pix":None,"move":False}
+selData = defSelData.copy()
 selRect = None
 
 def fileShit():
@@ -206,6 +207,8 @@ def downEvt(e):
 		lastXy = [x, y]
 		return
 	if sel == 2:
+		if selData["move"]:
+			return
 		if not selRect:
 			selData["x1"] = selData["x2"] = e.x
 			selData["y1"] = selData["y2"] = e.y
@@ -237,14 +240,28 @@ def onMove(e):
 		lastXy = [x, y]
 		return
 	if sel == 2:
-		selData["x2"] = e.x
-		selData["y2"] = e.y
-		redrawCnv()
+		if not selData["move"]:
+			selData["x2"] = e.x
+			selData["y2"] = e.y
+			redrawCnv()
+			return
+		return
 	# wait what
 
-def onUp(e):
+def upEvt(e):
+	global mDown
+	mDown = False
+	sel = tools.curselection()[0]
 	if sel == 2:
 		selData["move"] = True
+
+def newSel(e):
+	global selRect, selData, defSelData
+	if selRect:
+		cnv.delete(selRect)
+		selRect = None
+		selData = defSelData.copy()
+		redrawCnv()
 
 def getStr(n):
 	try:
@@ -347,7 +364,7 @@ cnv = tk.Canvas(wrap2, width=size[0], height=size[1])
 recacheFrm()
 redrawCnv()
 cnv.bind("<ButtonPress-1>", downEvt)
-# cnv.bind("<ButtonRelease-1>", upEvt)
+cnv.bind("<ButtonRelease-1>", upEvt)
 cnv.bind("<B1-Motion>", onMove)
 cnv.grid(row=0, column=0)
 wrap2.grid(row=0, column=1)
@@ -355,6 +372,7 @@ wrap3 = tk.Frame(wrap1) # wrapper for tools and tool opts
 wrap3.rowconfigure(1, weight=1)
 wrap3.columnconfigure(0, weight=1)
 tools = tk.Listbox(wrap3, activestyle=tk.NONE, height=len(availableTools), width=0) # tools
+tools.bind("<<ListboxSelect>>", newSel)
 retransTools()
 tools.grid(row=0, column=0, sticky="nesw")
 opts = tk.Frame(wrap3, bg="red")
