@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # "Animakeris 26" – animacijų piešimo programėlė – pieši animacijos kadrus, pasirenki FPS/(mili)sekundės per n kadrų ir sugeneruoja |.mp4|/|.gif| (PIL generuoja |.gif|/|.apng|, ffmpeg "binding"ai generuoja |.mp4|/|.mov|/t.t, tkinter daro main gui (|root|))
 import tkinter as tk
-import tkinter.messagebox as msgbox
+from tkinter import ttk, messagebox as msgbox, colorchooser as clrchoose
 from tkinter.filedialog import asksaveasfilename, askopenfile
 from PIL import Image, ImageTk, ImageChops
 import aggdraw as ImageDraw
@@ -19,6 +19,8 @@ defSelData = {"x1":0,"y1":0,"x2":0,"y2":0,"pix":None,"move":False}
 selData = defSelData.copy()
 selRect = None
 
+def convHex(a): return f"#{str().join([hex(b)[2:].zfill(2) for b in a])}"
+
 def fileShit():
 	return {"defaultextension": ".a26", "filetypes": [(getStr(17), "*.a26"),(getStr(18), "*.*")]}
 
@@ -29,6 +31,7 @@ def applyLang():
 	aLangRecursiveW(root, lookup)
 	aLangMenu(menu, lookup)
 	retransTools()
+	resetOpts()
 	prevLang = lang.get()
 
 def aLangRecursiveW(w, lookup):
@@ -113,7 +116,7 @@ def writeProj(p):
 
 def openProjWithoutSave():
 	global savedP, size, proj
-	with askopenfile("r", title="Open", **fileShit()) as f: # i wonder if this works...
+	with askopenfile("r", title="Open", **fileShit()) as f: # i wonder if this works?
 		if f == None: return
 		print(f.name)
 		savedP = f.name
@@ -192,7 +195,7 @@ def downEvt(e):
 		drawOn = proj[selFrame][selLayer]["draw"]
 		x = e.x
 		y = e.y
-		phil = "Black"
+		phil = convHex(toolOpts[0][0][2])
 		pSize = 10
 		hSize = pSize/2
 		if sel == 1:
@@ -223,7 +226,7 @@ def onMove(e):
 		drawOn = proj[selFrame][selLayer]["draw"]
 		x = e.x
 		y = e.y
-		phil = "Black"
+		phil = convHex(toolOpts[0][0][2])
 		pSize = 10
 		hSize = pSize/2
 		if sel == 1:
@@ -262,15 +265,58 @@ def newSel(e):
 		selRect = None
 		selData = defSelData.copy()
 		redrawCnv()
+	resetOpts()
 
 def getStr(n):
 	try:
 		return trans[lang.get()][n]
 	except: return "⁇⁇" # idfk
 
+def resetOpts():
+	def curry(idx, typ):
+		def setTo(v):
+			toolOpts[sel][idx][2] = rgb
+		def color():
+			rgb = list(clrchoose.askcolor(title="Pick color")[0])
+			if not rgb: return
+			e.widget.config(bg=convHex(rgb))
+			return rgb
+		if typ == "color": return lambda e: setTo(color())
+		return lambda e: None
+	[a.destroy() for a in opts.winfo_children()] # simple
+	sel = tools.curselection()[0]
+	oL = toolOpts[sel]
+	count = 0
+	for key, typ, default, *rest in oL:
+		lbl = tk.Label(opts, text=getStr(key)+":\xa0", anchor="w")
+		lbl.grid(row=count,column=0,sticky="nesw")
+		val = tk.Label(opts, text=getStr(None))
+		if typ == "color":
+			val = tk.Frame(opts, bg=convHex(default), relief="sunken", bd=4, highlightbackground=style.lookup("TFrame", "background"))
+		val.bind("<Button-1>", curry(count, typ))
+		val.grid(row=count,column=1,sticky="nesw")
+		count += 1
+
 translatedCfg = ["text", "value", "label", "content"]
 enablePp = 1
 availableTools = [3, 4, 14, 19]
+toolOpts = [
+	[
+		[20, "color", [0,0,0]],
+		[21, "num", 10]
+	],
+	[
+		[21, "num", 10]
+	],
+	[
+		[22, "menu", "rect", [["rect", 23], ["lasso", 24], ["color", 25]]],
+		[27, "frac", 0.5]
+	],
+	[
+		[20, "color", [0,0,0]],
+		[26, "frac", 0.5]
+	]
+]
 mDown = False
 lastXy = None
 trans = {
@@ -291,10 +337,18 @@ trans = {
 		"Save",
 		"Selection tool",
 		"Open",
-		"Save as...",
+		"Save as…",
 		"Animakeris 26 files",
 		"All files",
-		"Fill bucket"
+		"Fill bucket",
+		"Color",
+		"Size",
+		"Type",
+		"Rectangle",
+		"Lasso",
+		"Magic Wand",
+		"Sensitivity",
+		"Sensitivity"
 	],
 	"lt": [
 		"Failas",
@@ -313,14 +367,23 @@ trans = {
 		"Išsaugoti",
 		"Pasirinkimas",
 		"Atidaryti",
-		"Išsaugoti kitu vardu...",
+		"Išsaugoti kitu vardu…",
 		"Animakeris 26 failai",
 		"Visi failai",
-		"Pildymo kibiras"
+		"Pildymo kibiras",
+		"Spalva",
+		"Dydis",
+		"Tipas",
+		"Stačiakampis",
+		"Lasso",
+		"Magiška Lazdelė",
+		"Jautrumas",
+		"Jautrumas"
 	]
 }
 root = tk.Tk()
-lang = tk.StringVar(value="lt")
+lang = tk.StringVar(value="en")
+style = ttk.Style()
 prevLang = lang.get()
 root.geometry("800x600")
 root.title("Animakeris 26")
@@ -353,6 +416,8 @@ for l in trans.keys(): langs.add_radiobutton(label=trans[l][12], value=l, variab
 help.add_cascade(label=getStr(11), menu=langs)
 menu.add_cascade(label=getStr(7), menu=help)
 
+root.config(menu=menu)
+
 wrap1 = tk.Frame(root)
 wrap1.rowconfigure(0, weight=1)
 wrap1.columnconfigure(0, minsize=128)
@@ -375,11 +440,11 @@ tools = tk.Listbox(wrap3, activestyle=tk.NONE, height=len(availableTools), width
 tools.bind("<<ListboxSelect>>", newSel)
 retransTools()
 tools.grid(row=0, column=0, sticky="nesw")
-opts = tk.Frame(wrap3, bg="red")
+opts = tk.Frame(wrap3)
+opts.columnconfigure(1, weight=1)
 opts.grid(row=1, column=0, sticky="nesw")
 wrap3.grid(row=0, column=0, sticky="nesw")
 wrap1.grid(row=0, column=0, sticky="nesw")
 
-root.config(menu=menu)
-
+newSel(None)
 root.mainloop()
