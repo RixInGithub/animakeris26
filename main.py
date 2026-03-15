@@ -21,6 +21,11 @@ selRect = None
 
 def convHex(a): return f"#{str().join([hex(b)[2:].zfill(2) for b in a])}"
 
+def colSimilar(rgb1, rgb2, s):
+	r1, g1, b1 = rgb1
+	r2, g2, b2 = rgb2
+	return (((r1-r2)**2+(g1-g2)**2+(b1-b2)**2)**0.5) <= (195075**0.5)*s
+
 def fileShit():
 	return {"defaultextension": ".a26", "filetypes": [(getStr(17), "*.a26"),(getStr(18), "*.*")]}
 
@@ -275,13 +280,13 @@ def getStr(n):
 def resetOpts():
 	def curry(idx, typ):
 		def setTo(v):
-			toolOpts[sel][idx][2] = rgb
-		def color():
+			toolOpts[sel][idx][2] = v
+		def color(e):
 			rgb = list(clrchoose.askcolor(title="Pick color")[0])
 			if not rgb: return
 			e.widget.config(bg=convHex(rgb))
 			return rgb
-		if typ == "color": return lambda e: setTo(color())
+		if typ == "color": return lambda e: setTo(color(e))
 		return lambda e: None
 	[a.destroy() for a in opts.winfo_children()] # simple
 	sel = tools.curselection()[0]
@@ -291,8 +296,9 @@ def resetOpts():
 		lbl = tk.Label(opts, text=getStr(key)+":\xa0", anchor="w")
 		lbl.grid(row=count,column=0,sticky="nesw")
 		val = tk.Label(opts, text=getStr(None))
-		if typ == "color":
-			val = tk.Frame(opts, bg=convHex(default), relief="sunken", bd=4, highlightbackground=style.lookup("TFrame", "background"))
+		if typ == "color": val = tk.Frame(opts, bg=convHex(default), relief="sunken", bd=4, highlightbackground=style.lookup("TFrame", "background"))
+		if typ == "num":
+			val = tk.Entry(opts, )
 		val.bind("<Button-1>", curry(count, typ))
 		val.grid(row=count,column=1,sticky="nesw")
 		count += 1
