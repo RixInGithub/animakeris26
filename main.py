@@ -18,6 +18,7 @@ savedP = None
 defSelData = {"x1":0,"y1":0,"x2":0,"y2":0,"pix":None,"move":False}
 selData = defSelData.copy()
 selRect = None
+big = 10**100
 
 def convHex(a): return f"#{str().join([hex(b)[2:].zfill(2) for b in a])}"
 
@@ -66,9 +67,12 @@ def aLangMenu(m, lTbl):
 		count += 1
 
 def retransTools():
+	global prevSel
 	sels = tools.curselection()
 	sel = 0
 	if len(sels)>0: sel = sels[0]
+	try: prevSel
+	except: prevSel = sel
 	tools.delete(0, tk.END)
 	[tools.insert(tk.END, getStr(t)) for t in availableTools]
 	tools.selection_set(first=sel)
@@ -175,6 +179,7 @@ def resetProjDangerous():
 	cnv.img = None
 	tools.selection_clear(0, tk.END)
 	retransTools()
+	toolOpts = defToolOpts.copy()
 	addFrame()
 	recacheFrm()
 	redrawCnv()
@@ -201,7 +206,7 @@ def downEvt(e):
 		x = e.x
 		y = e.y
 		phil = convHex(toolOpts[0][0][2])
-		pSize = 10
+		pSize = toolOpts[sel][1][2]
 		hSize = pSize/2
 		if sel == 1:
 			eraseIm = blankImg()
@@ -232,7 +237,7 @@ def onMove(e):
 		x = e.x
 		y = e.y
 		phil = convHex(toolOpts[0][0][2])
-		pSize = 10
+		pSize = toolOpts[sel][1][2]
 		hSize = pSize/2
 		if sel == 1:
 			eraseIm = blankImg()
@@ -264,7 +269,12 @@ def upEvt(e):
 		selData["move"] = True
 
 def newSel(e):
-	global selRect, selData, defSelData
+	global selRect, selData, defSelData, prevSel
+	sels = tools.curselection()
+	# if not prevSel: prevSel = sels[0]
+	# atp prevSel will 100% be defined
+	if not sels:
+		tools.selection_set(first=prevSel)
 	if selRect:
 		cnv.delete(selRect)
 		selRect = None
@@ -279,14 +289,15 @@ def getStr(n):
 
 def resetOpts():
 	def curry(idx, typ):
-		def setTo(v):
-			toolOpts[sel][idx][2] = v
+		def setTo(f):
+			def inner(e): toolOpts[tools.curselection()[0]][idx][2] = f(e)
+			return inner
 		def color(e):
-			rgb = list(clrchoose.askcolor(title="Pick color")[0])
-			if not rgb: return
+			rgb = clrchoose.askcolor(title="Pick color")[0]
+			if rgb is None: return toolOpts[tools.curselection()[0]][idx][2]
 			e.widget.config(bg=convHex(rgb))
 			return rgb
-		if typ == "color": return lambda e: setTo(color(e))
+		if typ == "color": return setTo(color)
 		return lambda e: None
 	[a.destroy() for a in opts.winfo_children()] # simple
 	sel = tools.curselection()[0]
@@ -296,23 +307,36 @@ def resetOpts():
 		lbl = tk.Label(opts, text=getStr(key)+":\xa0", anchor="w")
 		lbl.grid(row=count,column=0,sticky="nesw")
 		val = tk.Label(opts, text=getStr(None))
-		if typ == "color": val = tk.Frame(opts, bg=convHex(default), relief="sunken", bd=4, highlightbackground=style.lookup("TFrame", "background"))
+		if typ == "color":
+			val = tk.Frame(opts, bg=convHex(default), relief="sunken", bd=4, highlightbackground=style.lookup("TFrame", "background"))
+			val.bind("<Button-1>", curry(count, typ))
 		if typ == "num":
-			val = tk.Entry(opts, )
-		val.bind("<Button-1>", curry(count, typ))
+			var = tk.IntVar(value=default)
+			def keyPressThing(e):
+				if not e.char.isdigit() and e.keysym.lower() not in ("backspace", "left", "right", "up", "down", "delete"): return "break"
+			def writeThing(idx):
+				def inner(*_):
+					updated = 0
+					try: updated = var.get()
+					except: pass
+					toolOpts[tools.curselection()[0]][idx][2] = updated
+				return inner
+			val = tk.Spinbox(opts, textvariable=var, from_=0, to=rest[0] or big)
+			val.bind("<KeyPress>", keyPressThing)
+			var.trace_add("write", writeThing(count))
 		val.grid(row=count,column=1,sticky="nesw")
 		count += 1
 
 translatedCfg = ["text", "value", "label", "content"]
 enablePp = 1
 availableTools = [3, 4, 14, 19]
-toolOpts = [
+defToolOpts = [
 	[
 		[20, "color", [0,0,0]],
-		[21, "num", 10]
+		[21, "num", 10, 100]
 	],
 	[
-		[21, "num", 10]
+		[21, "num", 10, 100]
 	],
 	[
 		[22, "menu", "rect", [["rect", 23], ["lasso", 24], ["color", 25]]],
@@ -323,6 +347,7 @@ toolOpts = [
 		[26, "frac", 0.5]
 	]
 ]
+toolOpts = defToolOpts.copy()
 mDown = False
 lastXy = None
 trans = {
@@ -439,7 +464,8 @@ cnv.bind("<ButtonRelease-1>", upEvt)
 cnv.bind("<B1-Motion>", onMove)
 cnv.grid(row=0, column=0)
 wrap2.grid(row=0, column=1)
-wrap3 = tk.Frame(wrap1) # wrapper for tools and tool opts
+wrap3 = tk.Frame(wrap1, width=128) # wrapper for tools and tool opts
+wrap3.grid_propagate(False)
 wrap3.rowconfigure(1, weight=1)
 wrap3.columnconfigure(0, weight=1)
 tools = tk.Listbox(wrap3, activestyle=tk.NONE, height=len(availableTools), width=0) # tools
