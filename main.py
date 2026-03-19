@@ -22,9 +22,10 @@ big = 10**100
 
 def convHex(a): return f"#{str().join([hex(b)[2:].zfill(2) for b in a])}"
 
-def colSimilar(rgb1, rgb2, s):
-	r1, g1, b1 = rgb1
-	r2, g2, b2 = rgb2
+def colSimilar(rgba1, rgba2, s):
+	r1, g1, b1, a1 = rgba1[:4]
+	r2, g2, b2, a2 = rgba2[:4]
+	if (abs(a2 - a1)) >= 255*s: return False
 	return (((r1-r2)**2+(g1-g2)**2+(b1-b2)**2)**0.5) <= (195075**0.5)*s
 
 def fileShit():
@@ -143,6 +144,22 @@ def openProjWithoutSave():
 	recacheFrm()
 	redrawCnv()
 
+def pickPx(x,y,col,s,f,initVal=None):
+	pxCalled = set()
+	pxActOn = [(x,y)]
+	stack = initVal
+	while len(pxActOn)>0:
+		new = []
+		for a in pxActOn:
+			if a in pxCalled: continue
+			pxCalled.add(a)
+			if a[0]<0 or a[0]>=size[0] or a[1]<0 or a[1]>=size[1]: continue
+			if not colSimilar(col, proj[selFrame][selLayer]["img"].getpixel(a), s): continue
+			stack = f(a[0],a[1],stack)
+			new.extend([(a[0],a[1]-1),(a[0]+1,a[1]),(a[0],a[1]+1),(a[0]-1,a[1])])
+		pxActOn=new
+	return stack
+
 def saveProj(withSavedP=True):
 	global savedP
 	if savedP and withSavedP:
@@ -206,7 +223,7 @@ def downEvt(e):
 		x = e.x
 		y = e.y
 		phil = convHex(toolOpts[0][0][2])
-		pSize = toolOpts[sel][1][2]
+		pSize = toolOpts[sel][-1][2]
 		hSize = pSize/2
 		if sel == 1:
 			eraseIm = blankImg()
@@ -237,7 +254,7 @@ def onMove(e):
 		x = e.x
 		y = e.y
 		phil = convHex(toolOpts[0][0][2])
-		pSize = toolOpts[sel][1][2]
+		pSize = toolOpts[sel][-1][2]
 		hSize = pSize/2
 		if sel == 1:
 			eraseIm = blankImg()
@@ -267,6 +284,10 @@ def upEvt(e):
 	sel = tools.curselection()[0]
 	if sel == 2:
 		selData["move"] = True
+	if sel == 3:
+		pickPx(e.x, e.y, proj[selFrame][selLayer]["img"].getpixel((e.x,e.y)), toolOpts[3][1][2], lambda x,y,*_: proj[selFrame][selLayer]["img"].putpixel((x,y),toolOpts[3][0][2]))
+		proj[selFrame][selLayer]["draw"] = ImageDraw.Draw(proj[selFrame][selLayer]["img"])
+		redrawCnv()
 
 def newSel(e):
 	global selRect, selData, defSelData, prevSel
@@ -290,11 +311,13 @@ def getStr(n):
 def resetOpts():
 	def curry(idx, typ):
 		def setTo(f):
-			def inner(e): toolOpts[tools.curselection()[0]][idx][2] = f(e)
+			def inner(e):
+				v = f(e)
+				if not val is None: toolOpts[tools.curselection()[0]][idx][2] = v
 			return inner
 		def color(e):
 			rgb = clrchoose.askcolor(title="Pick color")[0]
-			if rgb is None: return toolOpts[tools.curselection()[0]][idx][2]
+			if rgb is None: return
 			e.widget.config(bg=convHex(rgb))
 			return rgb
 		if typ == "color": return setTo(color)
