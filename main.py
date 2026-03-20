@@ -222,7 +222,7 @@ def downEvt(e):
 		drawOn = proj[selFrame][selLayer]["draw"]
 		x = e.x
 		y = e.y
-		phil = convHex(toolOpts[0][0][2])
+		phil = convHex(toolCol)
 		pSize = toolOpts[sel][-1][2]
 		hSize = pSize/2
 		if sel == 1:
@@ -253,7 +253,7 @@ def onMove(e):
 		drawOn = proj[selFrame][selLayer]["draw"]
 		x = e.x
 		y = e.y
-		phil = convHex(toolOpts[0][0][2])
+		phil = convHex(toolCol)
 		pSize = toolOpts[sel][-1][2]
 		hSize = pSize/2
 		if sel == 1:
@@ -285,7 +285,7 @@ def upEvt(e):
 	if sel == 2:
 		selData["move"] = True
 	if sel == 3:
-		pickPx(e.x, e.y, proj[selFrame][selLayer]["img"].getpixel((e.x,e.y)), toolOpts[3][1][2], lambda x,y,*_: proj[selFrame][selLayer]["img"].putpixel((x,y),toolOpts[3][0][2]))
+		pickPx(e.x, e.y, proj[selFrame][selLayer]["img"].getpixel((e.x,e.y)), toolOpts[3][1][2], lambda x,y,*_: proj[selFrame][selLayer]["img"].putpixel((x,y),toolCol))
 		proj[selFrame][selLayer]["draw"] = ImageDraw.Draw(proj[selFrame][selLayer]["img"])
 		redrawCnv()
 
@@ -309,30 +309,31 @@ def getStr(n):
 	except: return "⁇⁇" # idfk
 
 def resetOpts():
-	def curry(idx, typ):
-		def setTo(f):
-			def inner(e):
-				v = f(e)
-				if not val is None: toolOpts[tools.curselection()[0]][idx][2] = v
-			return inner
-		def color(e):
+	global toolCol
+	def color(idx):
+		def inner(e):
+			global toolCol
 			rgb = clrchoose.askcolor(title="Pick color")[0]
 			if rgb is None: return
 			e.widget.config(bg=convHex(rgb))
-			return rgb
-		if typ == "color": return setTo(color)
-		return lambda e: None
+			toolCol = rgb
+		return inner
 	[a.destroy() for a in opts.winfo_children()] # simple
 	sel = tools.curselection()[0]
 	oL = toolOpts[sel]
 	count = 0
-	for key, typ, default, *rest in oL:
+	for key, typ, *rest in oL:
+		default = None
+		try:
+			default = rest[0]
+		except: pass
+		rest = rest[1:]
 		lbl = tk.Label(opts, text=getStr(key)+":\xa0", anchor="w")
 		lbl.grid(row=count,column=0,sticky="nesw")
-		val = tk.Label(opts, text=getStr(None))
+		val = tk.Label(opts, text="wip")
 		if typ == "color":
-			val = tk.Frame(opts, bg=convHex(default), relief="sunken", bd=4, highlightbackground=style.lookup("TFrame", "background"))
-			val.bind("<Button-1>", curry(count, typ))
+			val = tk.Frame(opts, bg=convHex(toolCol), relief="sunken", bd=4, highlightbackground=style.lookup("TFrame", "background"))
+			val.bind("<Button-1>", color(count))
 		if typ == "num":
 			var = tk.IntVar(value=default)
 			def keyPressThing(e):
@@ -353,9 +354,10 @@ def resetOpts():
 translatedCfg = ["text", "value", "label", "content"]
 enablePp = 1
 availableTools = [3, 4, 14, 19]
+toolCol = (0,0,0)
 defToolOpts = [
 	[
-		[20, "color", [0,0,0]],
+		[20, "color"],
 		[21, "num", 10, 100]
 	],
 	[
@@ -363,10 +365,10 @@ defToolOpts = [
 	],
 	[
 		[22, "menu", "rect", [["rect", 23], ["lasso", 24], ["color", 25]]],
-		[27, "frac", 0.5]
+		[26, "frac", 0.5]
 	],
 	[
-		[20, "color", [0,0,0]],
+		[20, "color"],
 		[26, "frac", 0.5]
 	]
 ]
@@ -402,7 +404,7 @@ trans = {
 		"Lasso",
 		"Magic Wand",
 		"Sensitivity",
-		"Sensitivity"
+		"Layers"
 	],
 	"lt": [
 		"Failas",
@@ -432,7 +434,7 @@ trans = {
 		"Lasso",
 		"Magiška Lazdelė",
 		"Jautrumas",
-		"Jautrumas"
+		"Sluoksniai"
 	]
 }
 root = tk.Tk()
@@ -476,17 +478,17 @@ wrap1 = tk.Frame(root)
 wrap1.rowconfigure(0, weight=1)
 wrap1.columnconfigure(0, minsize=128)
 wrap1.columnconfigure(1, weight=1)
-wrap2 = tk.Frame(wrap1, background="White") # wrapper for canvas
+wrap2 = tk.Frame(wrap1, bg="#eee") # wrapper for canvas
 wrap2.rowconfigure(0, weight=1)
 wrap2.columnconfigure(0, weight=1)
-cnv = tk.Canvas(wrap2, width=size[0], height=size[1])
+cnv = tk.Canvas(wrap2, width=size[0], height=size[1], bg="White", highlightthickness=0)
 recacheFrm()
 redrawCnv()
 cnv.bind("<ButtonPress-1>", downEvt)
 cnv.bind("<ButtonRelease-1>", upEvt)
 cnv.bind("<B1-Motion>", onMove)
 cnv.grid(row=0, column=0)
-wrap2.grid(row=0, column=1)
+wrap2.grid(row=0, column=1, sticky="nesw")
 wrap3 = tk.Frame(wrap1, width=128) # wrapper for tools and tool opts
 wrap3.grid_propagate(False)
 wrap3.rowconfigure(1, weight=1)
@@ -500,6 +502,11 @@ opts.columnconfigure(1, weight=1)
 opts.grid(row=1, column=0, sticky="nesw")
 wrap3.grid(row=0, column=0, sticky="nesw")
 wrap1.grid(row=0, column=0, sticky="nesw")
+wrap1.columnconfigure(2, minsize=128)
+wrap4 = tk.Frame(wrap1, width=128)
+wrap4.columnconfigure(0, weight=1)
+tk.Label(wrap4, text=getStr(27)).grid(row=0, column=0, sticky="nesw")
+wrap4.grid(row=0, column=2, sticky="nesw")
 
 newSel(None)
 root.mainloop()
